@@ -1,3 +1,4 @@
+import os
 import asyncio
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, FSInputFile
@@ -116,4 +117,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
