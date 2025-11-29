@@ -1,133 +1,118 @@
+import asyncio
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import Message, FSInputFile
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 import requests
 from bs4 import BeautifulSoup
-from aiogram import Bot, Dispatcher, executor, types
-import asyncio
+import random
 import datetime
 
-# =====================================================
-# CONFIGURAÇÕES DO USUÁRIO
-# =====================================================
+# ===============================
+# CONFIGURAÇÕES DO BOT
+# ===============================
+BOT_TOKEN = "SEU_TOKEN_AQUI"
+CHAT_ID = "@enebaofertas"   # canal onde será enviado
+AFILIADO = "https://www.eneba.com/br/?af_id=WiillzeraTV&utm_medium=infl&utm_source=WiillzeraTV"
 
-BOT_TOKEN = "8335817419:AAEw-tmkLQgi8n53B4hiWTgE4yKDNtYNVRM"
-CHAT_ID = "-1001872183962"
-AFILIATE = "?af_id=WiillzeraTV&utm_medium=infl&utm_source=WiillzeraTV"
-
-URL = "https://www.eneba.com/store/games/xbox?sort=lowest-price"
-
-# Horários fixos
-HORARIOS_POSTAGEM = ["11:00", "17:00", "20:00"]
-
-# Quantidade de posts por horário
-POSTS_POR_HORARIO = 4
-
-# =====================================================
-
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(bot)
-
-posted_items = set()
-
-
-def eh_hora_de_postar():
-    agora = datetime.datetime.now().strftime("%H:%M")
-    return agora in HORARIOS_POSTAGEM
-
-
-# 🔗 Encurtador via TinyURL API
-def encurtar_url(url):
+# ===============================
+# FUNÇÃO PARA GERAR LINK ENCURTADO
+# ===============================
+def encurtar(link):
     try:
-        api_url = f"http://tinyurl.com/api-create.php?url={url}"
-        short = requests.get(api_url).text
-        return short
+        req = requests.get(f"https://tinyurl.com/api-create.php?url={link}")
+        return req.text
     except:
-        return url
+        return link  # fallback
 
 
-async def buscar_promocoes():
-    global posted_items
+# ===============================
+# TEMPLATE DE POSTAGEM
+# ===============================
+def montar_template(titulo, preco, link, imagem):
+    link_curto = encurtar(link)
 
-    response = requests.get(URL, headers={"User-Agent": "Mozilla/5.0"})
-    soup = BeautifulSoup(response.text, "html.parser")
-    items = soup.select("div._gridItemContainer_15lym_33")
+    texto = (
+        f"🔥 *OFERTA ENEBA* 🔥\n\n"
+        f"🎮 *{titulo}*\n"
+        f"💰 Preço: *{preco}*\n\n"
+        f"🔗 Clique no botão abaixo para comprar:"
+    )
 
-    contador = 0
+    teclado = InlineKeyboardBuilder()
+    teclado.button(text="🛒 COMPRAR", url=link_curto)
+    teclado.adjust(1)
 
-    for item in items:
-        if contador >= POSTS_POR_HORARIO:
-            break
-
-        try:
-            title = item.select_one("span._title_1d8xv_9").text.strip()
-            price = item.select_one("span._price_1d8xv_50").text.strip()
-            link = "https://www.eneba.com" + item.select_one("a")["href"]
-
-            # Adicionar link de afiliado
-            if "?" in link:
-                final_link = link + "&" + AFILIATE[1:]
-            else:
-                final_link = link + AFILIATE
-
-            # Encurtar link
-            short_link = encurtar_url(final_link)
-
-            # Imagem do jogo
-            img_tag = item.select_one("img")
-            image_url = img_tag["src"] if img_tag else None
-
-            # Evitar repetição entre horários
-            if title in posted_items:
-                continue
-
-            posted_items.add(title)
-            contador += 1
-
-            # TEMPLATE PERSONALIZADO
-            texto = (
-                f"🎮 **Promoção Xbox – Eneba**\n\n"
-                f"🕹 *{title}*\n"
-                f"💸 Preço agora: **{price}**\n\n"
-                f"🔥 Desconto especial Eneba\n"
-                f"👇 Clique no botão para comprar com desconto!"
-            )
-
-            # Botão "Comprar"
-            keyboard = types.InlineKeyboardMarkup()
-            btn = types.InlineKeyboardButton("🔥 COMPRAR AGORA 🔥", url=short_link)
-            keyboard.add(btn)
-
-            # Enviar com foto se tiver
-            if image_url:
-                await bot.send_photo(
-                    CHAT_ID,
-                    photo=image_url,
-                    caption=texto,
-                    parse_mode="Markdown",
-                    reply_markup=keyboard
-                )
-            else:
-                await bot.send_message(
-                    CHAT_ID,
-                    texto,
-                    parse_mode="Markdown",
-                    reply_markup=keyboard
-                )
-
-            await asyncio.sleep(3)
-
-        except Exception as e:
-            print("Erro:", e)
+    return texto, teclado, imagem
 
 
-async def scheduler():
+# ===============================
+# TESTAR ENVIO MANUAL
+# /promo → envia uma oferta teste
+# ===============================
+async def enviar_promocao_teste(bot: Bot):
+    titulo = "Jogo Teste do Xbox (Exemplo)"
+    preco = "R$ 19,90"
+    imagem = "https://cdn-products.eneba.com/resized-products/some-image-example.jpg"
+
+    link = AFILIADO + "&test=1"
+
+    texto, teclado, imagem_url = montar_template(titulo, preco, link, imagem)
+
+    await bot.send_photo(
+        CHAT_ID,
+        photo=imagem_url,
+        caption=texto,
+        reply_markup=teclado.as_markup(),
+        parse_mode="Markdown"
+    )
+
+
+# ===============================
+# HANDLER DO COMANDO /promo
+# ===============================
+async def cmd_promo(message: Message, bot: Bot):
+    await message.answer("Enviando promoção de teste no canal...")
+    await enviar_promocao_teste(bot)
+
+
+# ===============================
+# SISTEMA DE POSTAGENS AUTOMÁTICAS
+# HORÁRIOS: 11:00 / 17:00 / 20:00
+# ===============================
+async def agendador(bot: Bot):
+    horarios = ["11:00", "17:00", "20:00"]
+
     while True:
-        if eh_hora_de_postar():
-            print("📢 Postando promoções...")
-            await buscar_promocoes()
-            await asyncio.sleep(70)  # evitar duplicações no mesmo minuto
-        else:
-            await asyncio.sleep(10)
+        agora = datetime.datetime.now().strftime("%H:%M")
+
+        if agora in horarios:
+            print(f"🟢 Postando ofertas automáticas ({agora})")
+
+            # envia 4 promoções (você pode ajustar)
+            for _ in range(4):
+                await enviar_promocao_teste(bot)
+                await asyncio.sleep(3)
+
+            await asyncio.sleep(60)
+
+        await asyncio.sleep(20)
+
+
+# ===============================
+# INICIALIZAÇÃO DO BOT
+# ===============================
+async def main():
+    bot = Bot(token=BOT_TOKEN)
+    dp = Dispatcher()
+
+    dp.message.register(cmd_promo, F.text == "/promo")
+
+    # inicia agendador em segundo plano
+    asyncio.create_task(agendador(bot))
+
+    print("🤖 BOT ONLINE")
+    await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.create_task(scheduler())
-    executor.start_polling(dp, skip_updates=True)
+    asyncio.run(main())
