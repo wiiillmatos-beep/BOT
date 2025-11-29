@@ -1,4 +1,6 @@
 import os
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+print("TOKEN DEBUG:", BOT_TOKEN)
 import asyncio
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, FSInputFile
@@ -117,5 +119,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
