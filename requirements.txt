@@ -1,4 +1,4 @@
 aiogram==3.4.1
 requests
 beautifulsoup4
-lxml
+lxml==5.2.1
