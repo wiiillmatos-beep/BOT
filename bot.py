@@ -10,7 +10,7 @@ import datetime
 # ===============================
 # CONFIGURAÇÕES DO BOT
 # ===============================
-BOT_TOKEN = "SEU_TOKEN_AQUI"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = "@enebaofertas"   # canal onde será enviado
 AFILIADO = "https://www.eneba.com/br/?af_id=WiillzeraTV&utm_medium=infl&utm_source=WiillzeraTV"
 
@@ -116,3 +116,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
