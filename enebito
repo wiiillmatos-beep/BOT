@@ -15,7 +15,7 @@ AFILIATE = "?af_id=WiillzeraTV&utm_medium=infl&utm_source=WiillzeraTV"
 URL = "https://www.eneba.com/store/games/xbox?sort=lowest-price"
 
 # Horários fixos
-HORARIOS_POSTAGEM = ["11:00", "17:00", "20:00"]
+HORARIOS_POSTAGEM = ["11:00", "15:05", "20:00"]
 
 # Quantidade de posts por horário
 POSTS_POR_HORARIO = 4
